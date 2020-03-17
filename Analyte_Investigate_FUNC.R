@@ -5,7 +5,7 @@
 # "cleanup" changes for faceted:
 #   removed x-axis tick labels, x-axis title ("point"), y-axis "baselines normalized to mean," legend, different id colors 
 
-# @dataset      e.g. genef, pcl, metaphlan, dfkine, clinical, lipids, proteomics, metabolomics
+# @dataset      e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
 # @selected     analyte(s), default = all analytes
 # @norm         whether normalized with all baselines @ 0 (precomputed)
 
