@@ -5,29 +5,35 @@
 # "cleanup" changes for faceted:
 #   removed x-axis tick labels, x-axis title ("point"), y-axis "baselines normalized to mean," legend, different id colors 
 
-# @dataset    e.g. genef, pcl, metaphlan, dfkine, clinical, lipids, proteomics, metabolomics
-# @selected   analyte(s), default = all analytes
-# @norm       whether normalized with all baselines @ 0 (precomputed)
+# @dataset      e.g. genef, pcl, metaphlan, dfkine, clinical, lipids, proteomics, metabolomics
+# @selected     analyte(s), default = all analytes
+# @norm         whether normalized with all baselines @ 0 (precomputed)
 
-# @comb_only  only print combined-fiber graphs
-# @faceted    faceted instead of overlayed ids
-# @filled     "fill in" missing baselines with avg of present baselines (precomputed)
-# @partition  how to divide the data, default = ids separate
-# @only       only include these ids
-# @without    exclude these ids
-# @desc       for documentation, should be used with any specification of partition, only, without, multiple selected
+# @comb_only              only print combined-fiber graphs
+# @faceted                faceted instead of overlayed ids
+# @filled                 "fill in" missing baselines with avg of present baselines (precomputed)
+# @partition              how to divide the data, default = ids separate
+# @only                   only include these ids
+# @without                exclude these ids
+# @omit_x_axis            often used for faceted graphs, omit x-axis labels for clean look
+# @responder_partition    specify this partition has responders, only available if specific @partition
+# @label_responders       use special labeling to single out responders, only available if @responder_partition and
+#                           specified @partition
+# @desc                   for documentation, should be used with any specification of partition, only, without, 
+#                           multiple selected
 
 analyte_investigate <- function(dataset, selected = all_analytes, norm = T, 
                                         comb_only = F, faceted = F, filled = T, partition = NA,
-                                        only = ids, without = c(), desc = "") {
+                                        only = ids, without = c(), omit_x_axis = F,
+                                        responder_partition = T, label_responders = T, desc = "") {
   require(tidyverse)
   require(plotrix)
   
   prefix <- "Tidy_Full"
   if (filled) prefix <- paste(prefix, "Filled", sep = "_")
 
-  fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t")
-  ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t")
+  fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
+  ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t", quiet = T)
   load(file.path("Data", prefix, paste(prefix, fibers[1], dataset, "df.RData", sep = "_")))
   all_analytes <- tidy_df$analyte %>% unique()
   
@@ -45,15 +51,15 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
   
   if (dataset == "clinical") {
     # add units
-    clin_names <- scan(file.path("Metadata", "Clin_Names_Safe.tsv"), character(), quote = '', sep = "\t")
-    clin_names_full <- scan(file.path("Metadata", "Clin_Names.tsv"), character(), quote = '', sep = "\t")
-    clin_units <- scan(file.path("Metadata", "Clin_Units.tsv"), character(), quote = '', sep = "\t")
+    clin_names <- scan(file.path("Metadata", "Clin_Names_Safe.tsv"), character(), quote = '', sep = "\t", quiet = T)
+    clin_names_full <- scan(file.path("Metadata", "Clin_Names.tsv"), character(), quote = '', sep = "\t", quiet = T)
+    clin_units <- scan(file.path("Metadata", "Clin_Units.tsv"), character(), quote = '', sep = "\t", quiet = T)
     names(clin_units) <- clin_names
     names(clin_names_full) <- clin_names
     
     # also reading for normal_range ranges
-    clin_mins <- scan(file.path("Metadata", "Clin_Healthy_Ranges_min.tsv"), double(), quote = '', sep = "\t")
-    clin_maxs <- scan(file.path("Metadata", "Clin_Healthy_Ranges_max.tsv"), double(), quote = '', sep = "\t")
+    clin_mins <- scan(file.path("Metadata", "Clin_Healthy_Ranges_min.tsv"), double(), quote = '', sep = "\t", quiet = T)
+    clin_maxs <- scan(file.path("Metadata", "Clin_Healthy_Ranges_max.tsv"), double(), quote = '', sep = "\t", quiet = T)
     names(clin_mins) <- clin_names
     names(clin_maxs) <- clin_names
   }
@@ -71,6 +77,11 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
     partition_vec <- partition_df$partition
     names(partition_vec) <- partition_df$participant
   }
+  
+  # if no partition, responder partitioning is impossible
+  if (is.na(partition)) responder_partition = F
+  # if no responder partitioning, labeling responders is impossible
+  if (!responder_partition) label_responders = F
   
   for (analy in selected) {
     
@@ -175,39 +186,63 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
         tidy_df$partition = partition_vec[tidy_df$id]
       }
       
-      # partitioning with transparency
-      if (is.na(partition)) {
-        tidy_df$alph = T;
-      } else {
-        # transparency is only used with binary responder-nonresponder partitioning
+      # responder partitioning: find responders
+      if (responder_partition) {
+        responders = tidy_df[which(partition_vec[tidy_df$id] == "responder"), "id"] %>% unique()
+      }
+      
+      # responder partitioning and non-faceted: use transparency
+      if (responder_partition && !faceted) {
         tidy_df$alph = partition_vec[tidy_df$id] == "responder"
+        transparency = T
+      } else {
+        transparency = F
       }
       
       # graphing ids separately
       pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 9, height = 6)
       
       plot <- tidy_df %>% ggplot()
-      if (dataset == "clinical") plot <- plot + 
+      if (dataset == "clinical") plot <- plot +
         geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
         scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
-      if (norm && (faceted && is.na(partition))) plot <- plot +  # if specifiiced, partition, include colors
-        geom_line(aes(x = point, y = renorm_val, alpha = alph, group = id))
-      else if (norm && !faceted)  plot <- plot + 
-        geom_line(aes(x = point, y = renorm_val, group = id, alpha = alph, color = id))
-      else if (!norm && (faceted && is.na(partition))) plot <- plot + # if specifiiced, partition, include colors
-        geom_line(aes(x = point, y = val, group = id, alpha = alph))
-      else plot <- plot + 
-        geom_line(aes(x = point, y = val, group = id, alpha = alph, color = id))
-      # clean theme
-      plot <- plot + 
+      # manage colors and val vs renorm_val
+      if (norm) {
+        if (faceted && is.na(partition)) plot <- plot +  # faceted and no partition: no colors
+          geom_line(aes(x = point, y = renorm_val, group = id))
+        else { # otherwise, colors
+          if (transparency) plot <- plot + # check if alpha
+            geom_line(aes(x = point, y = renorm_val, group = id, alpha = alph, color = id))
+          else plot <- plot +
+            geom_line(aes(x = point, y = renorm_val, group = id, color = id))
+        }
+      } else {
+        if (faceted && is.na(partition)) plot <- plot + # faceted and no partition: include colors
+          geom_line(aes(x = point, y = val, group = id))
+        else { # otherwise, colors
+          if (transparency) plot <- plot + # check if alpha
+            geom_line(aes(x = point, y = val, group = id, alpha = alph, color = id))
+          else plot <- plot +
+              geom_line(aes(x = point, y = val, group = id, color = id))
+        }
+      }
+      # theme management
+      if (omit_x_axis) plot <- plot +
         theme(
           # axis.text.x = element_text(size=10, angle=45, hjust = 1)
           axis.text.x = element_blank(),
           axis.title.x = element_blank(),
           axis.ticks.x = element_blank(),
-          legend.title = element_blank()) +
-        ylab(paste(analy_full, unit, sep = "")) +
-        scale_alpha_manual(values = c(0.4, 1), labels = NULL)
+          legend.position = "none") # remove both id legend and potential alpha legend
+      else plot <- plot +
+        theme(
+          axis.text.x = element_text(size=10, angle=45, hjust = 1)) +
+        guides(alpha = F) # remove only potential alpha legend
+      plot <- plot +
+        ylab(paste(analy_full, unit, sep = ""))
+      # optionals
+      if (transparency) plot <- plot + scale_alpha_manual(values = c(0.4, 1), labels = NULL)
+      if (label_responders) plot <- plot + scale_color_discrete(breaks = responders, name = "responders")
       if (faceted) plot <- plot + facet_wrap(~partition)
       
       print(plot)
