@@ -175,6 +175,14 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
         tidy_df$partition = partition_vec[tidy_df$id]
       }
       
+      # partitioning with transparency
+      if (is.na(partition)) {
+        tidy_df$alph = T;
+      } else {
+        # transparency is only used with binary responder-nonresponder partitioning
+        tidy_df$alph = partition_vec[tidy_df$id] == "responder"
+      }
+      
       # graphing ids separately
       pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 9, height = 6)
       
@@ -183,13 +191,13 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
         geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
         scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
       if (norm && (faceted && is.na(partition))) plot <- plot +  # if specifiiced, partition, include colors
-        geom_line(aes(x = point, y = renorm_val, group = id))
+        geom_line(aes(x = point, y = renorm_val, alpha = alph, group = id))
       else if (norm && !faceted)  plot <- plot + 
-        geom_line(aes(x = point, y = renorm_val, group = id, color = id))
+        geom_line(aes(x = point, y = renorm_val, group = id, alpha = alph, color = id))
       else if (!norm && (faceted && is.na(partition))) plot <- plot + # if specifiiced, partition, include colors
-        geom_line(aes(x = point, y = val, group = id))
+        geom_line(aes(x = point, y = val, group = id, alpha = alph))
       else plot <- plot + 
-        geom_line(aes(x = point, y = val, group = id, color = id))
+        geom_line(aes(x = point, y = val, group = id, alpha = alph, color = id))
       # clean theme
       plot <- plot + 
         theme(
@@ -198,7 +206,8 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
           axis.title.x = element_blank(),
           axis.ticks.x = element_blank(),
           legend.title = element_blank()) +
-        ylab(paste(analy_full, unit, sep = ""))
+        ylab(paste(analy_full, unit, sep = "")) +
+        scale_alpha_manual(values = c(0.4, 1), labels = NULL)
       if (faceted) plot <- plot + facet_wrap(~partition)
       
       print(plot)
