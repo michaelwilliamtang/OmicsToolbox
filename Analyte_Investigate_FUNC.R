@@ -16,6 +16,8 @@
 # @only                   only include these ids
 # @without                exclude these ids
 # @omit_x_axis            often used for faceted graphs, omit x-axis labels for clean look
+# @fibers                 which fibers to graph, default = all
+# @graph_dir              directory for graphs
 # @responder_partition    specify this partition has responders, only available if specific @partition
 # @label_responders       use special labeling to single out responders, only available if @responder_partition and
 #                           specified @partition
@@ -24,7 +26,8 @@
 
 analyte_investigate <- function(dataset, selected = all_analytes, norm = T, 
                                         comb_only = F, faceted = F, filled = T, partition = NA,
-                                        only = ids, without = c(), omit_x_axis = F,
+                                        only = ids, without = c(), omit_x_axis = F, 
+                                        fibers = all_fibers, graph_dir = NA,
                                         responder_partition = T, label_responders = T, desc = "") {
   require(tidyverse)
   require(plotrix)
@@ -32,20 +35,23 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
   prefix <- "Tidy_Full"
   if (filled) prefix <- paste(prefix, "Filled", sep = "_")
 
-  fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
+  all_fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
   ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t", quiet = T)
   load(file.path("Data", prefix, paste(prefix, fibers[1], dataset, "df.RData", sep = "_")))
   all_analytes <- tidy_df$analyte %>% unique()
   
-  dir_source <- "Graphs"
-  dir_name <- "Analyte"
-  if (norm) dir_name <- paste(dir_name, "Norm", sep = "_")
-  if (comb_only) dir_name <- paste(dir_name, "Comb_Only", sep = "_")
-  if (faceted) dir_name <- paste(dir_name, "Faceted", sep = "_")
-  if (filled) dir_name <- paste(dir_name, "Filled", sep = "_")
-  if (!is.na(partition)) dir_name <- paste(dir_name, "Partition", sep = "_")
-  if (length(selected) == 1) dir_name <- paste(dir_name, selected, sep = "_")
-  graph_dir <- file.path(dir_source, paste(dir_name, dataset, desc, sep = "_"))
+  if (is.na(graph_dir)) {
+    dir_source <- "Graphs"
+    dir_name <- "Analyte"
+    if (norm) dir_name <- paste(dir_name, "Norm", sep = "_")
+    if (comb_only) dir_name <- paste(dir_name, "Comb_Only", sep = "_")
+    if (faceted) dir_name <- paste(dir_name, "Faceted", sep = "_")
+    if (filled) dir_name <- paste(dir_name, "Filled", sep = "_")
+    if (!is.na(partition)) dir_name <- paste(dir_name, "Partition", sep = "_")
+    if (length(selected) == 1) dir_name <- paste(dir_name, selected, sep = "_")
+    if (length(fibers) == 1) dir_name <- paste(dir_name, fibers, sep = "_")
+    graph_dir <- file.path(dir_source, paste(dir_name, dataset, desc, sep = "_"))
+  }
   if (!dir.exists(graph_dir))
     dir.create(graph_dir)
   
@@ -248,6 +254,8 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       print(plot)
       dev.off()
     }
+    
+    if (length(fibers) == 1) return("Only 1 fiber, so no comb graph")
     
     # with error bars, with comb_df and working dodging
     pd <- position_dodge(width = 0.2)
