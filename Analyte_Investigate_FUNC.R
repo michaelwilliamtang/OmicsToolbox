@@ -1,13 +1,12 @@
 # investigates ONE analyte in an omic/dataset and makes a fiber-comb graph and individual graphs
 #   per fiber showing the participants
-# renorms centered at part means
+# norms centered at part means
 # adds normal_range ranges for clinicals
 # units, full names and clinical units in particular
 
-# @dataset    string e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, 
-#             metabolomics
+# @dataset    string e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
 # @selected   vector of analyte string(s), default = all analytes
-# @renorm     whether renormalized with all baselines @ 0
+# @norm       whether normalized with all baselines @ 0
 # @partition  how to divide the data, default = ids separate
 # @only       only include these ids, default = include all
 # @without    exclude these ids, default = exclude none (can only use only OR without, not both together)
@@ -18,8 +17,8 @@
 # (removal of "baselines norm" ends up affecting both faceted and Comb_Avg graphs)
 # filled: due to large number of missing baselines, fill in baselines with avg baseline of all participants as compromise
 
-analyte_investigate_faceted <- function(dataset, selected = all_analytes, 
-                                        faceted = T, renorm = T, filled = T, partition = NA,
+analyte_investigate <- function(dataset, selected = all_analytes,
+                                        faceted = T, norm = T, filled = T, partition = NA,
                                         only = ids, without = c(), list_name = "") {
   require(tidyverse)
   require(plotrix)
@@ -36,7 +35,7 @@ analyte_investigate_faceted <- function(dataset, selected = all_analytes,
   dir_name <- "Analyte"
   if (faceted) dir_name <- paste(dir_name, "Faceted", sep = "_")
   if (filled) dir_name <- paste(dir_name, "Filled", sep = "_")
-  if (renorm) dir_name <- paste(dir_name, "Renorm", sep = "_")
+  if (norm) dir_name <- paste(dir_name, "norm", sep = "_")
   if (length(selected) == 1) {
     graph_dir <- file.path(dir_source, paste(dir_name, selected, dataset, sep = "_"))
   } else {
@@ -85,11 +84,11 @@ analyte_investigate_faceted <- function(dataset, selected = all_analytes,
       } else {
         unit <- paste(" (", clin_units[analy], ")", sep = "")
       }
-      # if (renorm) {
+      # if (norm) {
       #   unit <- paste(unit, ",\nbaselines normalized to mean", sep = "")
       # }
     } else {
-      if (renorm) {
+      if (norm) {
         unit <- " (log2 normalized expression)"
       } else {
         unit <- " (log2 expression)"
@@ -116,16 +115,16 @@ analyte_investigate_faceted <- function(dataset, selected = all_analytes,
       tidy_cyto <- tidy_df %>% filter(analyte == analy) %>% filter(id %in% only) %>% filter(!(id %in% without))
       
       # graphing ids together, averaged
-      if (renorm) {
-        tidy_cyto <- na.omit(tidy_cyto) # for missing baselines creating NAs in renormalization
+      if (norm) {
+        tidy_cyto <- na.omit(tidy_cyto) # for missing baselines creating NAs in normalization
         tmp_cyto <- tidy_cyto %>%
           group_by(point) %>%
-          dplyr::summarise(mean_parts = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on renorm
+          dplyr::summarise(mean_parts = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on norm
           ungroup()
       } else {
         tmp_cyto <- tidy_cyto %>%
           group_by(point) %>%
-          dplyr::summarise(mean_parts = mean(val), std_error = std.error(val)) %>% # std error cannot be based on renorm
+          dplyr::summarise(mean_parts = mean(val), std_error = std.error(val)) %>% # std error cannot be based on norm
           ungroup()
       }
       
@@ -135,7 +134,7 @@ analyte_investigate_faceted <- function(dataset, selected = all_analytes,
       
       if (dataset == "clinical") {
         # setting up background rects
-        if (renorm) {
+        if (norm) {
           data_min <- min(tidy_cyto$renorm_val)
           data_max <- max(tidy_cyto$renorm_val)
         } else {
@@ -181,11 +180,11 @@ analyte_investigate_faceted <- function(dataset, selected = all_analytes,
       if (dataset == "clinical") plot <- plot + 
         geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
         scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
-      if (renorm && faceted) plot <- plot + 
+      if (norm && faceted) plot <- plot + 
         geom_line(aes(x = point, y = renorm_val, group = id))
-      else if (renorm && !faceted)  plot <- plot + 
+      else if (norm && !faceted)  plot <- plot + 
         geom_line(aes(x = point, y = renorm_val, group = id, color = id))
-      else if (!renorm && faceted) plot <- plot + 
+      else if (!norm && faceted) plot <- plot + 
         geom_line(aes(x = point, y = val, group = id))
       else plot <- plot + 
         geom_line(aes(x = point, y = val, group = id, color = id))
