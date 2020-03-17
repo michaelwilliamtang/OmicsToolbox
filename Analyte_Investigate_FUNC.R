@@ -10,16 +10,17 @@
 # @renorm     whether renormalized with all baselines @ 0
 # @list_name  optional, for documentation, needs to describe clearly
 
-# "quick and dirty" way to get all analytes, assume arabinoxylan file
-load(paste("Tidy_Full", "Arabinoxylan", dataset, "df.RData", sep = "_"))
-all_analytes <- tidy_df$analyte %>% unique()
-
-analyte_investigate_list_natural_ranges <- function(dataset, selected = all_analytes, renorm, list_name = "") {
+analyte_investigate_list_natural_ranges <- function(dataset, selected = all_analytes, renorm = T, list_name = "") {
 
   require(tidyverse)
   require(plotrix)
   
-  fibers = c("Arabinoxylan","LCInulin","Mix")
+  prefix <- "Tidy_Full"
+  
+  fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t")
+  ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t")
+  load(file.path("Data", prefix, paste(prefix, fibers[1], dataset, "df.RData", sep = "_")))
+  all_analytes <- tidy_df$analyte %>% unique()
   
   # order matters as this is used for factor levels
   timepoints <- c("Baseline", "10", "20", "30",
