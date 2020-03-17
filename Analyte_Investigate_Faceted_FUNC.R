@@ -18,10 +18,9 @@
 # (removal of "baselines norm" ends up affecting both faceted and Comb_Avg graphs)
 # filled: due to large number of missing baselines, fill in baselines with avg baseline of all participants as compromise
 
-analyte_investigate_natural_ranges_faceted_clean <- function(dataset, selected = all_analytes, 
-                                                                    renorm = T, filled = T, partition = NA,
-                                                                    only = ids, without = c(),
-                                                                    list_name = "") {
+analyte_investigate_faceted <- function(dataset, selected = all_analytes, 
+                                        faceted = T, renorm = T, filled = T, partition = NA,
+                                        only = ids, without = c(), list_name = "") {
   require(tidyverse)
   require(plotrix)
   
@@ -33,8 +32,9 @@ analyte_investigate_natural_ranges_faceted_clean <- function(dataset, selected =
   load(file.path("Data", prefix, paste(prefix, fibers[1], dataset, "df.RData", sep = "_")))
   all_analytes <- tidy_df$analyte %>% unique()
   
-  dir_name <- "Analyte_Faceted"
-  dir_source <- file.path("Graphs", "Analyte_Faceted")
+  dir_source <- "Graphs"
+  dir_name <- "Analyte"
+  if (faceted) dir_name <- paste(dir_name, "Faceted", sep = "_")
   if (filled) dir_name <- paste(dir_name, "Filled", sep = "_")
   if (renorm) dir_name <- paste(dir_name, "Renorm", sep = "_")
   if (length(selected) == 1) {
@@ -175,71 +175,33 @@ analyte_investigate_natural_ranges_faceted_clean <- function(dataset, selected =
       }
       
       # graphing ids separately
-      if (renorm) {
-        pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 9, height = 6)
-        if (dataset == "clinical") {
-          print(tidy_cyto %>%
-            ggplot() +
-              geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
-              scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95")) +
-            # geom_point() +
-            geom_line(aes(x = point, y = renorm_val, group = id, color = id)) +
-            theme(
-              # axis.text.x = element_text(size=10, angle=45, hjust = 1)
-              axis.text.x = element_blank(),
-              axis.title.x = element_blank(),
-              axis.ticks.x = element_blank(),
-              legend.title = element_blank()) +
-            ylab(paste(analy_full, unit, sep = "")) +
-            facet_wrap(~partition))
-        } else {
-          print(tidy_cyto %>%
-            ggplot() +
-            # geom_point() +
-            geom_line(aes(x = point, y = renorm_val, group = id, color = id)) +
-            theme(
-              # axis.text.x = element_text(size=10, angle=45, hjust = 1)
-              axis.text.x = element_blank(),
-              axis.title.x = element_blank(),
-              axis.ticks.x = element_blank(),
-              legend.title = element_blank()) +
-            ylab(paste(analy_full, unit, sep = "")) +
-            facet_wrap(~partition))
-        }
-        dev.off()
-      } else {
-        pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 9, height = 6)
-        if (dataset == "clinical") {
-          print(tidy_cyto %>%
-            ggplot() +
-              geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
-              scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95")) +
-            # geom_point() +
-            geom_line(aes(x = point, y = val, group = id, color = id)) +
-            theme(
-              # axis.text.x = element_text(size=10, angle=45, hjust = 1)
-              axis.text.x = element_blank(),
-              axis.title.x = element_blank(),
-              axis.ticks.x = element_blank(),
-              legend.title = element_blank()) +
-            ylab(paste(analy_full, unit, sep = "")) +
-            facet_wrap(~partition))
-        } else {
-          print(tidy_cyto %>%
-            ggplot() +
-            # geom_point() +
-            geom_line(aes(x = point, y = val, group = id, color = id)) +
-            theme(
-              # axis.text.x = element_text(size=10, angle=45, hjust = 1)
-              axis.text.x = element_blank(),
-              axis.title.x = element_blank(),
-              axis.ticks.x = element_blank(),
-              legend.title = element_blank()) +
-            ylab(paste(analy_full, unit, sep = "")) +
-            facet_wrap(~partition))
-        }
-        dev.off()
-      }
+      pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 9, height = 6)
+      
+      plot <- tidy_cyto %>% ggplot()
+      if (dataset == "clinical") plot <- plot + 
+        geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
+        scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
+      if (renorm && faceted) plot <- plot + 
+        geom_line(aes(x = point, y = renorm_val, group = id))
+      else if (renorm && !faceted)  plot <- plot + 
+        geom_line(aes(x = point, y = renorm_val, group = id, color = id))
+      else if (!renorm && faceted) plot <- plot + 
+        geom_line(aes(x = point, y = val, group = id))
+      else plot <- plot + 
+        geom_line(aes(x = point, y = val, group = id, color = id))
+      # clean theme
+      plot <- plot + 
+        theme(
+          # axis.text.x = element_text(size=10, angle=45, hjust = 1)
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          legend.title = element_blank()) +
+        ylab(paste(analy_full, unit, sep = ""))
+      if (faceted) plot <- plot + facet_wrap(~partition)
+      
+      print(plot)
+      dev.off()
     }
     
     # with error bars, with comb_df and working dodging
@@ -279,29 +241,20 @@ analyte_investigate_natural_ranges_faceted_clean <- function(dataset, selected =
     # normalizing with each fiber baseline
     # assumed sorted, so baseline is first timepoint of each analyte-fiber set, and fibers adjacent
     
-    if (dataset == "clinical") {
-      print(comb_df %>%
-        ggplot() + #ggplot(position = pd) +
-          geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
-          scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95")) +
-        geom_line(position = pd, aes(x = point, y = mean_parts, group = fiber, color = fiber)) +
-        geom_errorbar(aes(x = point, ymin = mean_parts - std_error, ymax = mean_parts + std_error,
-                          group = fiber, color = fiber),
-                      width = .5, position = pd) +
-        theme(
-          axis.text.x = element_text(size=10, angle=45, hjust = 1)) +
-        ylab(paste(analy_full, unit, sep = "")))
-    } else {
-      print(comb_df %>%
-        ggplot() + #ggplot(position = pd) +
-        geom_line(position = pd, aes(x = point, y = mean_parts, group = fiber, color = fiber)) +
-        geom_errorbar(aes(x = point, ymin = mean_parts - std_error, ymax = mean_parts + std_error,
-                          group = fiber, color = fiber),
-                      width = .5, position = pd) +
-        theme(
-          axis.text.x = element_text(size=10, angle=45, hjust = 1)) +
-        ylab(paste(analy_full, unit, sep = "")))
-    }
+    plot <- comb_df %>% ggplot()
+    if (dataset == "clinical") plot <- plot +
+      geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
+      scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
+    plot <- plot +  
+      geom_line(position = pd, aes(x = point, y = mean_parts, group = fiber, color = fiber)) +
+      geom_errorbar(aes(x = point, ymin = mean_parts - std_error, ymax = mean_parts + std_error,
+                        group = fiber, color = fiber),
+                    width = .5, position = pd) +
+      theme(
+        axis.text.x = element_text(size=10, angle=45, hjust = 1)) +
+        ylab(paste(analy_full, unit, sep = ""))
+    
+    print(plot)
     dev.off()
   }
 }
