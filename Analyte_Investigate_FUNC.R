@@ -1,25 +1,25 @@
-# investigates ONE analyte in an omic/dataset and makes a fiber-comb graph and individual graphs
-#   per fiber showing the participants
-# norms centered at part means
-# adds normal_range ranges for clinicals
-# units, full names and clinical units in particular
+# investigates ONE analyte in an omic dataset and makes a fiber-comb graph and individual graphs
+#   per fiber of the participants' responses
+# includes normal ranges, units, full names for clinicals
+# includes full names for proteomics
+# "cleanup" changes for faceted:
+#   removed x-axis tick labels, x-axis title ("point"), y-axis "baselines normalized to mean," legend, different id colors 
 
-# @dataset    string e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
-# @selected   vector of analyte string(s), default = all analytes
-# @norm       whether normalized with all baselines @ 0
+# @dataset    e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
+# @selected   analyte(s), default = all analytes
+# @norm       whether normalized with all baselines @ 0 (precomputed)
+
+# @comb_only  only print combined-fiber graphs
+# @faceted    faceted instead of overlayed ids
+# @filled     "fill in" missing baselines with avg of present baselines (precomputed)
 # @partition  how to divide the data, default = ids separate
-# @only       only include these ids, default = include all
-# @without    exclude these ids, default = exclude none (can only use only OR without, not both together)
-# @list_name  optional, for documentation, needs to describe clearly
+# @only       only include these ids
+# @without    exclude these ids
+# @desc       for documentation, should be used with any specification of partition, only, without, multiple selected
 
-# "clean-up" changes:
-# removed x-axis tick labels, x-axis title (point), y-axis "baselines normalized to mean," legend, different id colors 
-# (removal of "baselines norm" ends up affecting both faceted and Comb_Avg graphs)
-# filled: due to large number of missing baselines, fill in baselines with avg baseline of all participants as compromise
-
-analyte_investigate <- function(dataset, selected = all_analytes,
-                                        faceted = T, norm = T, filled = T, partition = NA,
-                                        only = ids, without = c(), list_name = "") {
+analyte_investigate <- function(dataset, selected = all_analytes, norm = T, 
+                                        comb_only = F, faceted = F, filled = T, partition = NA,
+                                        only = ids, without = c(), desc = "") {
   require(tidyverse)
   require(plotrix)
   
@@ -33,14 +33,13 @@ analyte_investigate <- function(dataset, selected = all_analytes,
   
   dir_source <- "Graphs"
   dir_name <- "Analyte"
+  if (norm) dir_name <- paste(dir_name, "Norm", sep = "_")
+  if (comb_only) dir_name <- paste(dir_name, "Comb_Only", sep = "_")
   if (faceted) dir_name <- paste(dir_name, "Faceted", sep = "_")
   if (filled) dir_name <- paste(dir_name, "Filled", sep = "_")
-  if (norm) dir_name <- paste(dir_name, "norm", sep = "_")
-  if (length(selected) == 1) {
-    graph_dir <- file.path(dir_source, paste(dir_name, selected, dataset, sep = "_"))
-  } else {
-    graph_dir <- file.path(dir_source, paste(dir_name, dataset, list_name, sep = "_"))
-  }
+  if (!is.na(partition)) dir_name <- paste(dir_name, "Partition", sep = "_")
+  if (length(selected) == 1) dir_name <- paste(dir_name, selected, sep = "_")
+  graph_dir <- file.path(dir_source, paste(dir_name, dataset, desc, sep = "_"))
   if (!dir.exists(graph_dir))
     dir.create(graph_dir)
   
@@ -132,6 +131,9 @@ analyte_investigate <- function(dataset, selected = all_analytes,
       tmp_cyto <- cbind(tmp_cyto, "fiber" = rep(fiber, nrow(tmp_cyto)))
       comb_df <- rbind(comb_df, tmp_cyto)
       
+      # check if we want individual (non-comb) graphs
+      if (comb_only) next
+      
       if (dataset == "clinical") {
         # setting up background rects
         if (norm) {
@@ -180,11 +182,11 @@ analyte_investigate <- function(dataset, selected = all_analytes,
       if (dataset == "clinical") plot <- plot + 
         geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
         scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
-      if (norm && faceted) plot <- plot + 
+      if (norm && (faceted && is.na(partition))) plot <- plot +  # if specifiiced, partition, include colors
         geom_line(aes(x = point, y = renorm_val, group = id))
       else if (norm && !faceted)  plot <- plot + 
         geom_line(aes(x = point, y = renorm_val, group = id, color = id))
-      else if (!norm && faceted) plot <- plot + 
+      else if (!norm && (faceted && is.na(partition))) plot <- plot + # if specifiiced, partition, include colors
         geom_line(aes(x = point, y = val, group = id))
       else plot <- plot + 
         geom_line(aes(x = point, y = val, group = id, color = id))
