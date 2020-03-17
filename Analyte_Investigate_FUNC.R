@@ -5,7 +5,7 @@
 # "cleanup" changes for faceted:
 #   removed x-axis tick labels, x-axis title ("point"), y-axis "baselines normalized to mean," legend, different id colors 
 
-# @dataset    e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
+# @dataset    e.g. genef, pcl, metaphlan, dfkine, clinical, lipids, proteomics, metabolomics
 # @selected   analyte(s), default = all analytes
 # @norm       whether normalized with all baselines @ 0 (precomputed)
 
@@ -111,25 +111,25 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       
       # loading data
       load(file.path("Data", prefix, paste(prefix, fiber, dataset, "df.RData", sep = "_")))
-      tidy_cyto <- tidy_df %>% filter(analyte == analy) %>% filter(id %in% only) %>% filter(!(id %in% without))
+      tidy_df <- tidy_df %>% filter(analyte == analy) %>% filter(id %in% only) %>% filter(!(id %in% without))
       
       # graphing ids together, averaged
       if (norm) {
-        tidy_cyto <- na.omit(tidy_cyto) # for missing baselines creating NAs in normalization
-        tmp_cyto <- tidy_cyto %>%
+        tidy_df <- na.omit(tidy_df) # for missing baselines creating NAs in normalization
+        tmp_df <- tidy_df %>%
           group_by(point) %>%
           dplyr::summarise(mean_parts = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on norm
           ungroup()
       } else {
-        tmp_cyto <- tidy_cyto %>%
+        tmp_df <- tidy_df %>%
           group_by(point) %>%
           dplyr::summarise(mean_parts = mean(val), std_error = std.error(val)) %>% # std error cannot be based on norm
           ungroup()
       }
       
       # saving dfs
-      tmp_cyto <- cbind(tmp_cyto, "fiber" = rep(fiber, nrow(tmp_cyto)))
-      comb_df <- rbind(comb_df, tmp_cyto)
+      tmp_df <- cbind(tmp_df, "fiber" = rep(fiber, nrow(tmp_df)))
+      comb_df <- rbind(comb_df, tmp_df)
       
       # check if we want individual (non-comb) graphs
       if (comb_only) next
@@ -137,11 +137,11 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       if (dataset == "clinical") {
         # setting up background rects
         if (norm) {
-          data_min <- min(tidy_cyto$renorm_val)
-          data_max <- max(tidy_cyto$renorm_val)
+          data_min <- min(tidy_df$renorm_val)
+          data_max <- max(tidy_df$renorm_val)
         } else {
-          data_min <- min(tidy_cyto$val)
-          data_max <- max(tidy_cyto$val)
+          data_min <- min(tidy_df$val)
+          data_max <- max(tidy_df$val)
         }
         # data_min <- data_mins[[analy]]
         # data_max <- data_maxs[[analy]]
@@ -170,15 +170,15 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       
       # partitioning
       if (is.na(partition)) {
-        tidy_cyto$partition = tidy_cyto$id
+        tidy_df$partition = tidy_df$id
       } else {
-        tidy_cyto$partition = partition_vec[tidy_cyto$id]
+        tidy_df$partition = partition_vec[tidy_df$id]
       }
       
       # graphing ids separately
       pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 9, height = 6)
       
-      plot <- tidy_cyto %>% ggplot()
+      plot <- tidy_df %>% ggplot()
       if (dataset == "clinical") plot <- plot + 
         geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
         scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
