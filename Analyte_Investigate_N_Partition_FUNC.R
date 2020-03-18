@@ -4,6 +4,7 @@
 # @dataset                e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
 # @selected               analyte(s), default = all analytes
 # @norm                   whether normalized with all baselines @ 0 (precomputed)
+# @N                      number of partitions
 # @overwrite              whether to redo partition if already exists
 
 # @faceted                faceted instead of overlayed ids
@@ -20,7 +21,7 @@
 # @desc                   for documentation, should be used with any specification of partition, only, without, 
 #                           multiple selected
 
-analyte_investigate_responder_tripartition <- function(dataset, selected = all_analytes, norm = T, overwrite = F,
+analyte_investigate_N_partition <- function(dataset, selected = all_analytes, norm = T, N = 3, overwrite = F,
                                             faceted = F, filled = F, responder_label = "top",
                                             only = ids, without = c(), omit_x_axis = F,
                                             fibers = all_fibers, graph_dir = NA,
@@ -31,11 +32,10 @@ analyte_investigate_responder_tripartition <- function(dataset, selected = all_a
   load(file.path("Data", prefix, paste(prefix, fibers[1], dataset, "df.RData", sep = "_")))
   all_analytes <- tidy_df$analyte %>% unique()
   comb_only = F # partition has no effect on combined graphs
-  desc = paste(desc, "Resp_Tripartition", sep = "_")
   
   for (analy in selected) {
     # get partitions; safer to specify params in case order changes
-    partition_dir <- responder_tripartition(dataset = dataset, analy = analy, norm = norm, overwrite = overwrite,
+    partition_dir <- N_partition(dataset = dataset, analy = analy, norm = norm, N = N, overwrite = overwrite,
                                             fibers = fibers, filled = filled, only = only, without = without)
     
     
@@ -46,15 +46,15 @@ analyte_investigate_responder_tripartition <- function(dataset, selected = all_a
       # consolidate in one dir
       if (is.na(graph_dir)) {
         dir_source <- "Graphs"
-        dir_name <- "Analyte"
+        dir_name <-  paste("Resp", N, "Partition", sep = "_")
         if (norm) dir_name <- paste(dir_name, "Norm", sep = "_")
-        if (comb_only) dir_name <- paste(dir_name, "Comb_Only", sep = "_")
         if (faceted) dir_name <- paste(dir_name, "Faceted", sep = "_")
         if (filled) dir_name <- paste(dir_name, "Filled", sep = "_")
-        if (!is.na(partition)) dir_name <- paste(dir_name, "Partition", sep = "_")
         if (length(selected) == 1) dir_name <- paste(dir_name, selected, sep = "_")
         if (length(fibers) == 1) dir_name <- paste(dir_name, fibers, sep = "_")
-        graph_dir <- file.path(dir_source, paste(dir_name, dataset, desc, sep = "_"))
+        dir_name <- paste(dir_name, dataset, sep = "_")
+        if (desc != "") dir_name <- paste(dir_name, desc, sep = "_")
+        graph_dir <- file.path(dir_source, dir_name)
       }
       if (!dir.exists(graph_dir))
         dir.create(graph_dir)

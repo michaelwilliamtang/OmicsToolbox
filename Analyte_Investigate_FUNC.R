@@ -51,7 +51,9 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
     if (!is.na(partition)) dir_name <- paste(dir_name, "Partition", sep = "_")
     if (length(selected) == 1) dir_name <- paste(dir_name, selected, sep = "_")
     if (length(fibers) == 1) dir_name <- paste(dir_name, fibers, sep = "_")
-    graph_dir <- file.path(dir_source, paste(dir_name, dataset, desc, sep = "_"))
+    dir_name <- paste(dir_name, dataset, sep = "_")
+    if (desc != "") dir_name <- paste(dir_name, desc, sep = "_")
+    graph_dir <- file.path(dir_source, dir_name)
   }
   if (!dir.exists(graph_dir))
     dir.create(graph_dir)

@@ -1,15 +1,16 @@
-# investigate ONE analy as 3 groups on 1 graph, with top, middle, bottom groups of responders
+# investigate ONE analy as N groups on 1 graph, with top, middle, bottom groups of responders
 # responder val calculated with mean of 10, 20, 30
 
 # @dataset      e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
 # @analy        desired analyte in the dataset
 # @norm         whether normalized with all baselines @ 0 (precomputed)
+# @N            number of partitions
 # @overwrite    whether to redo partition if already exists
 # @filled       "fill in" missing baselines with avg of present baselines (precomputed)
 # @only         only include these ids
 # @without      exclude these ids
 
-responder_tripartition <- function(dataset, analy, norm = T, overwrite = F, fibers = all_fibers,
+N_partition <- function(dataset, analy, norm = T, N = 3, overwrite = F, fibers = all_fibers,
                                    filled = F, only = ids, without = c()) {
   require(tidyverse)
   require(plotrix)
@@ -20,7 +21,7 @@ responder_tripartition <- function(dataset, analy, norm = T, overwrite = F, fibe
   all_fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
   ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t", quiet = T)
   
-  partition_name <- paste("Partition", analy, dataset, sep = "_")
+  partition_name <- paste(N, "Partition", analy, dataset, sep = "_")
   partition_dir <- file.path("Metadata", "Partitions", partition_name)
   if (dir.exists(partition_dir)) {
     print("Partition already created")
@@ -56,8 +57,12 @@ responder_tripartition <- function(dataset, analy, norm = T, overwrite = F, fibe
       arrange(desc(avg))
     
     # making groups
-    response <- factor(levels = c("top", "middle", "bottom"))
-    resp_df$partition <- levels(response)[(0:(nrow(resp_df) - 1) %/% (nrow(resp_df)/ 3)) + 1] # splitting into 3 groups
+    if (N <= 1) return ("Invalid N")
+    else if (N == 2) response <- factor(levels = c("top", "bottom"))
+    else if (N == 3) response <- factor(levels = c("top", "middle", "bottom"))
+    else response <- factor(levels = c("top", 1:(N-2) + 1, "bottom"))
+                                        
+    resp_df$partition <- levels(response)[(0:(nrow(resp_df) - 1) %/% (nrow(resp_df)/ N)) + 1] # splitting into N groups
     
     # save
     write.csv(resp_df, partition_loc)
