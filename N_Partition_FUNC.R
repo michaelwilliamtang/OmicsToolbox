@@ -59,7 +59,7 @@ N_partition <- function(dataset, analy, norm = T, N = 3, overwrite = F, fibers =
     # making groups
     if (N <= 1) return ("Invalid N")
     else if (N == 2) response <- factor(levels = c("top", "bottom"))
-    else if (N == 3) response <- factor(levels = c("top", "middle", "bottom"))
+    else if (N == 3) response <- factor(ordered = T, levels = c("top", "middle", "bottom"))
     else response <- factor(levels = c("top", 1:(N-2) + 1, "bottom"))
                                         
     resp_df$partition <- levels(response)[(0:(nrow(resp_df) - 1) %/% (nrow(resp_df)/ N)) + 1] # splitting into N groups

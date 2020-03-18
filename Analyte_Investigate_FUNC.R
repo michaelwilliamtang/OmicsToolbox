@@ -27,6 +27,7 @@
 
 analyte_investigate <- function(dataset, selected = all_analytes, norm = T, 
                                         comb_only = F, faceted = F, filled = T, partition = NA, responder_label = "responder",
+                                        partition_method = "aggregate",
                                         only = ids, without = c(), omit_x_axis = F, 
                                         fibers = all_fibers, graph_dir = NA,
                                         responder_partition = T, label_responders = T, desc = "") {
@@ -89,8 +90,17 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
   
   # if no partition, responder partitioning is impossible
   if (is.na(partition)) responder_partition = F
-  # if no responder partitioning, labeling responders is impossible
-  if (!responder_partition) label_responders = F
+  # transparency only if chosen and responder_partition available and not faceted
+  if (responder_partition && !faceted && partition_method == "transparency") transparency = T
+  else transparency = F
+  # aggregate only if chosen and responder_partition available and not faceted
+  if (responder_partition && !faceted && partition_method == "aggregate") aggregate = T
+  else aggregate = F
+  # if no responder partitioning or using aggregate, do not label responders
+  if (!responder_partition || aggregate) label_responders = F
+  
+  # dodge for aggreg or combined fiber graphs
+  pd <- position_dodge(width = 0.2)
   
   for (analy in selected) {
     
@@ -138,15 +148,15 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
         tidy_df <- na.omit(tidy_df) # for missing baselines creating NAs in normalization
         tmp_df <- tidy_df %>%
           group_by(point) %>%
-          dplyr::summarise(mean_parts = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on norm
+          summarize(mean_parts = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on norm
           ungroup()
       } else {
         tmp_df <- tidy_df %>%
           group_by(point) %>%
-          dplyr::summarise(mean_parts = mean(val), std_error = std.error(val)) %>% # std error cannot be based on norm
+          summarize(mean_parts = mean(val), std_error = std.error(val)) %>% # std error cannot be based on norm
           ungroup()
       }
-      
+
       # saving dfs
       tmp_df <- cbind(tmp_df, "fiber" = rep(fiber, nrow(tmp_df)))
       comb_df <- rbind(comb_df, tmp_df)
@@ -200,28 +210,41 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
         responders = tidy_df[which(partition_vec[tidy_df$id] == responder_label), "id"] %>% unique()
       }
       
-      # responder partitioning and non-faceted: use transparency
-      if (responder_partition && !faceted) {
-        tidy_df$alph = partition_vec[tidy_df$id] == responder_label
-        transparency = T
-      } else {
-        transparency = F
+      # transparency
+      if (transparency) tidy_df$alph <- partition_vec[tidy_df$id] == responder_label
+      else if (aggregate) {
+        tidy_df$partition <- partition_vec[tidy_df$id]
+        if (norm)
+          tidy_df <- tidy_df %>%
+            group_by(point, partition) %>%
+            summarize(mean_partition = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on norm
+            ungroup()
+        else
+          tidy_df <- tidy_df %>%
+            group_by(point, partition) %>%
+            summarize(mean_partition = mean(val), std_error = std.error(val)) %>% # std error cannot be based on norm
+            ungroup()
       }
       
       # graphing ids separately
-      pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 9, height = 6)
+      pdf(file.path(graph_dir, paste(analy, dataset, fiber, "Ids.pdf", sep = "_")), width = 6, height = 4)
       
       plot <- tidy_df %>% ggplot()
       if (dataset == "clinical") plot <- plot +
         geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
-        scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
+        scale_fill_manual(name = "range", values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
       # manage colors and val vs renorm_val
       if (norm) {
         if (faceted && is.na(partition)) plot <- plot +  # faceted and no partition: no colors
           geom_line(aes(x = point, y = renorm_val, group = id))
         else { # otherwise, colors
-          if (transparency) plot <- plot + # check if alpha
+          if (transparency) plot <- plot +
             geom_line(aes(x = point, y = renorm_val, group = id, alpha = alph, color = id))
+          else if (aggregate) plot <- plot +
+            geom_line(aes(x = point, y = mean_partition, group = partition, color = partition), position = pd) +
+            geom_errorbar(aes(x = point, ymin = mean_partition - std_error, ymax = mean_partition + std_error,
+                              group = partition, color = partition),
+                          width = .5, position = pd)
           else plot <- plot +
             geom_line(aes(x = point, y = renorm_val, group = id, color = id))
         }
@@ -229,8 +252,13 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
         if (faceted && is.na(partition)) plot <- plot + # faceted and no partition: include colors
           geom_line(aes(x = point, y = val, group = id))
         else { # otherwise, colors
-          if (transparency) plot <- plot + # check if alpha
+          if (transparency) plot <- plot +
             geom_line(aes(x = point, y = val, group = id, alpha = alph, color = id))
+          else if (aggregate) plot <- plot +
+              geom_line(aes(x = point, y = mean_partition, group = partition, color = partition), position = pd) +
+              geom_errorbar(aes(x = point, ymin = mean_partition - std_error, ymax = mean_partition + std_error,
+                                group = partition, color = partition),
+                            width = .5, position = pd)
           else plot <- plot +
               geom_line(aes(x = point, y = val, group = id, color = id))
         }
@@ -259,9 +287,6 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
     }
     
     if (length(fibers) == 1) return("Only 1 fiber, so no comb graph")
-    
-    # with error bars, with comb_df and working dodging
-    pd <- position_dodge(width = 0.2)
     
     if (dataset == "clinical") {
       # setting up background rects
@@ -292,7 +317,7 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       }
     }
     
-    pdf(file.path(graph_dir, paste(analy, "_", dataset, "_Comb_Avg.pdf", sep = "")), width = 9, height = 6)
+    pdf(file.path(graph_dir, paste(analy, "_", dataset, "_Comb_Avg.pdf", sep = "")), width = 6, height = 4)
     
     # normalizing with each fiber baseline
     # assumed sorted, so baseline is first timepoint of each analyte-fiber set, and fibers adjacent
@@ -300,7 +325,7 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
     plot <- comb_df %>% ggplot()
     if (dataset == "clinical") plot <- plot +
       geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
-      scale_fill_manual(values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
+      scale_fill_manual(name = "range", values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
     plot <- plot +  
       geom_line(position = pd, aes(x = point, y = mean_parts, group = fiber, color = fiber)) +
       geom_errorbar(aes(x = point, ymin = mean_parts - std_error, ymax = mean_parts + std_error,
