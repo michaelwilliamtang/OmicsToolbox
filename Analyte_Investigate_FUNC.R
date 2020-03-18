@@ -13,6 +13,7 @@
 # @faceted                faceted instead of overlayed ids
 # @filled                 "fill in" missing baselines with avg of present baselines (precomputed)
 # @partition              how to divide the data, default = ids separate
+# @responder_label        artificially create binary division, which partition label to be treated as responder
 # @only                   only include these ids
 # @without                exclude these ids
 # @omit_x_axis            often used for faceted graphs, omit x-axis labels for clean look
@@ -25,7 +26,7 @@
 #                           multiple selected
 
 analyte_investigate <- function(dataset, selected = all_analytes, norm = T, 
-                                        comb_only = F, faceted = F, filled = T, partition = NA,
+                                        comb_only = F, faceted = F, filled = T, partition = NA, responder_label = "responder",
                                         only = ids, without = c(), omit_x_axis = F, 
                                         fibers = all_fibers, graph_dir = NA,
                                         responder_partition = T, label_responders = T, desc = "") {
@@ -194,12 +195,12 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       
       # responder partitioning: find responders
       if (responder_partition) {
-        responders = tidy_df[which(partition_vec[tidy_df$id] == "responder"), "id"] %>% unique()
+        responders = tidy_df[which(partition_vec[tidy_df$id] == responder_label), "id"] %>% unique()
       }
       
       # responder partitioning and non-faceted: use transparency
       if (responder_partition && !faceted) {
-        tidy_df$alph = partition_vec[tidy_df$id] == "responder"
+        tidy_df$alph = partition_vec[tidy_df$id] == responder_label
         transparency = T
       } else {
         transparency = F
@@ -248,7 +249,7 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
         ylab(paste(analy_full, unit, sep = ""))
       # optionals
       if (transparency) plot <- plot + scale_alpha_manual(values = c(0.4, 1), labels = NULL)
-      if (label_responders) plot <- plot + scale_color_discrete(breaks = responders, name = "responders")
+      if (label_responders) plot <- plot + scale_color_discrete(breaks = responders, name = responder_label)
       if (faceted) plot <- plot + facet_wrap(~partition)
       
       print(plot)

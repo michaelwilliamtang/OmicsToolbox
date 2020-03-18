@@ -8,6 +8,7 @@
 
 # @faceted                faceted instead of overlayed ids
 # @filled                 "fill in" missing baselines with avg of present baselines (precomputed)
+# @responder_label        artificially create binary division, which partition label to be treated as responder
 # @only                   only include these ids
 # @without                exclude these ids
 # @omit_x_axis            often used for faceted graphs, omit x-axis labels for clean look
@@ -20,7 +21,7 @@
 #                           multiple selected
 
 analyte_investigate_responder_tripartition <- function(dataset, selected = all_analytes, norm = T, overwrite = F,
-                                            faceted = F, filled = F,
+                                            faceted = F, filled = F, responder_label = "top",
                                             only = ids, without = c(), omit_x_axis = F,
                                             fibers = all_fibers, graph_dir = NA,
                                             responder_partition = T, label_responders = T, desc = "") {
@@ -61,6 +62,7 @@ analyte_investigate_responder_tripartition <- function(dataset, selected = all_a
       # make graphs
       analyte_investigate(dataset = dataset, selected = analy, norm = norm, 
                           comb_only = comb_only, faceted = faceted, filled = filled, partition = partition_loc,
+                          responder_label = responder_label,
                           only = only, without = without, omit_x_axis = omit_x_axis, 
                           fibers = fiber, graph_dir = graph_dir,
                           responder_partition = responder_partition, label_responders = label_responders, desc = desc)

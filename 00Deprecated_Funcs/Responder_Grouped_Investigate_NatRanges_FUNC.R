@@ -1,18 +1,16 @@
-# investigate ONE analy (e.g. LDL Calc) as 3 groups on 1 graph, with top, middle, bottom 6 responders
-# with error bars and dodge
+# investigate ONE analy as 3 groups on 1 graph, with top, middle, bottom 6 responders
 # responder val calculated with mean of 10, 20, 30
 # @precondition there are 18 ids
-# updated with natural ranges, only updated/works for clin!!
 
 # @dataset    e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
 # @analy      desired analyte in the dataset
 # @norm       whether normalized with all baselines @ 0
 
-require(tidyverse)
-require(plotrix)
-
 responder_grouped_investigate <- function(dataset, analy, norm) {
 
+  require(tidyverse)
+  require(plotrix)
+  
   fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
   file_prefix <- "Tidy_Full"
   
