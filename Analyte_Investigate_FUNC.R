@@ -81,7 +81,7 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
   if (!is.na(partition)) {
     partition_df <- read.csv(partition, stringsAsFactors = F)
     partition_vec <- partition_df$partition
-    names(partition_vec) <- partition_df$participant
+    names(partition_vec) <- partition_df$id
   }
   
   # if no partition, responder partitioning is impossible

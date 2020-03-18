@@ -1,30 +1,44 @@
 # investigate ONE analy as 3 groups on 1 graph, with top, middle, bottom groups of responders
 # responder val calculated with mean of 10, 20, 30
 
-# @dataset    e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
-# @analy      desired analyte in the dataset
-# @norm       whether normalized with all baselines @ 0
+# @dataset      e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
+# @analy        desired analyte in the dataset
+# @norm         whether normalized with all baselines @ 0 (precomputed)
+# @overwrite    whether to redo partition if already exists
+# @filled       "fill in" missing baselines with avg of present baselines (precomputed)
+# @only         only include these ids
+# @without      exclude these ids
 
-responder_tripartition <- function(dataset, analy, norm = T) {
+responder_tripartition <- function(dataset, analy, norm = T, overwrite = F, fibers = all_fibers,
+                                   filled = F, only = ids, without = c()) {
   require(tidyverse)
   require(plotrix)
   
-  file_prefix <- "Tidy_Full"
+  if (filled) file_prefix <- "Tidy_Full_Filled"
+  else  file_prefix <- "Tidy_Full"
   
-  fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
+  all_fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
   ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t", quiet = T)
   
   partition_name <- paste("Partition", analy, dataset, sep = "_")
   partition_dir <- file.path("Metadata", "Partitions", partition_name)
-  if (!dir.exists(partition_dir)) dir.create(partition_dir)
+  if (dir.exists(partition_dir)) {
+    print("Partition already created")
+    if (overwrite) print("Overwriting")
+    else return(partition_dir)
+  }
+  else {
+    dir.create(partition_dir)
+    print("Creating new partition")
+  }
   
   for (fiber in fibers) {
     
     partition_loc <- file.path(partition_dir, paste(fiber, "_", analy, "_", dataset, ".csv", sep = ""))
     
     # load
-    load(file.path("Data", prefix, paste(prefix, fiber, dataset, "df.RData", sep = "_")))
-    tidy_df <- tidy_df %>% filter(analyte == analy) #%>% filter(id %in% only) %>% filter(!(id %in% without))
+    load(file.path("Data", file_prefix, paste(file_prefix, fiber, dataset, "df.RData", sep = "_")))
+    tidy_df <- tidy_df %>% filter(analyte == analy) %>% filter(id %in% only) %>% filter(!(id %in% without))
     
     # compute resp values; method = average 10, 20, 30 timepoints
     if (norm) {
@@ -48,4 +62,5 @@ responder_tripartition <- function(dataset, analy, norm = T) {
     # save
     write.csv(resp_df, partition_loc)
   }
+  return(partition_dir)
 }
