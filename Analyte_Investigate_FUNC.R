@@ -14,10 +14,13 @@
 # @filled                 "fill in" missing baselines with avg of present baselines (precomputed)
 # @partition              how to divide the data, default = ids separate
 # @responder_label        artificially create binary division, which partition label to be treated as responder
+# @partition_method       partitioning methods, current options: transparency, aggregate
 # @only                   only include these ids
 # @without                exclude these ids
 # @omit_x_axis            often used for faceted graphs, omit x-axis labels for clean look
+# @omit_units             often used for index or ratio analytes
 # @fibers                 which fibers to graph, default = all
+# @file_prefix            file prefix for data location (folder name and data file prefix)
 # @graph_dir              directory for graphs
 # @responder_partition    specify this partition has responders, only available if specific @partition
 # @label_responders       use special labeling to single out responders, only available if @responder_partition and
@@ -26,20 +29,19 @@
 #                           multiple selected
 
 analyte_investigate <- function(dataset, selected = all_analytes, norm = T, 
-                                        comb_only = F, faceted = F, filled = T, partition = NA, responder_label = "responder",
+                                        comb_only = F, faceted = F, filled = F, partition = NA, responder_label = "responder",
                                         partition_method = "aggregate",
-                                        only = ids, without = c(), omit_x_axis = F, 
-                                        fibers = all_fibers, graph_dir = NA,
+                                        only = ids, without = c(), omit_x_axis = F, omit_units = F,
+                                        fibers = all_fibers, file_prefix = "Tidy_Full", graph_dir = NA,
                                         responder_partition = T, label_responders = T, desc = "") {
   require(tidyverse)
   require(plotrix)
   
-  prefix <- "Tidy_Full"
-  if (filled) prefix <- paste(prefix, "Filled", sep = "_")
+  if (filled) file_prefix <- paste(file_prefix, "Filled", sep = "_")
 
   all_fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
   ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t", quiet = T)
-  load(file.path("Data", prefix, paste(prefix, fibers[1], dataset, "df.RData", sep = "_")))
+  load(file.path("Data", file_prefix, paste(file_prefix, fibers[1], dataset, "df.RData", sep = "_")))
   all_analytes <- tidy_df$analyte %>% unique()
   
   if (is.na(graph_dir)) {
@@ -107,7 +109,8 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
     comb_df <- data.frame()
   
     # setting units
-    if (dataset == "clinical") {
+    if (omit_units) unit <- ""
+    else if (dataset == "clinical") {
       if (is.na(clin_units[analy])) {
         unit <- ""
       } else {
@@ -140,7 +143,7 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       print(fiber)
       
       # loading data
-      load(file.path("Data", prefix, paste(prefix, fiber, dataset, "df.RData", sep = "_")))
+      load(file.path("Data", file_prefix, paste(file_prefix, fiber, dataset, "df.RData", sep = "_")))
       tidy_df <- tidy_df %>% filter(analyte == analy) %>% filter(id %in% only) %>% filter(!(id %in% without))
       
       # graphing ids together, averaged

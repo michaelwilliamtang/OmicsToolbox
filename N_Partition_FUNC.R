@@ -1,22 +1,23 @@
 # investigate ONE analy as N groups on 1 graph, with top, middle, bottom groups of responders
 # responder val calculated with mean of 10, 20, 30
 
-# @dataset      e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
-# @analy        desired analyte in the dataset
-# @norm         whether normalized with all baselines @ 0 (precomputed)
-# @N            number of partitions
-# @overwrite    whether to redo partition if already exists
-# @filled       "fill in" missing baselines with avg of present baselines (precomputed)
-# @only         only include these ids
-# @without      exclude these ids
+# @dataset          e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
+# @analy            desired analyte in the dataset
+# @norm             whether normalized with all baselines @ 0 (precomputed)
+# @N                number of partitions
+# @overwrite        whether to redo partition if already exists
+# @filled           "fill in" missing baselines with avg of present baselines (precomputed)
+# @only             only include these ids
+# @without          exclude these ids
+# @fibers           which fibers to graph, default = all
+# @file_prefix      file prefix for data location (folder name and data file prefix)
 
-N_partition <- function(dataset, analy, norm = T, N = 3, overwrite = F, fibers = all_fibers,
-                                   filled = F, only = ids, without = c()) {
+N_partition <- function(dataset, analy, norm = T, N = 3, overwrite = F, filled = F, only = ids, without = c(),
+                        fibers = all_fibers, file_prefix = "Tidy_Full") {
   require(tidyverse)
   require(plotrix)
   
-  if (filled) file_prefix <- "Tidy_Full_Filled"
-  else  file_prefix <- "Tidy_Full"
+  if (filled) file_prefix <- paste(file_prefix, "Filled", sep = "_")
   
   all_fibers = scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
   ids = scan(file.path("Metadata", "Ids.tsv"), character(), quote = '', sep = "\t", quiet = T)
