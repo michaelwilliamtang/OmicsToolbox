@@ -30,7 +30,7 @@
 
 analyte_investigate <- function(dataset, selected = all_analytes, norm = T, 
                                         comb_only = F, faceted = F, filled = F, partition = NA, responder_label = "responder",
-                                        partition_method = "aggregate",
+                                        partition_method = "transparency",
                                         only = ids, without = c(), omit_x_axis = F, omit_units = F,
                                         fibers = all_fibers, file_prefix = "Tidy_Full", graph_dir = NA,
                                         responder_partition = T, label_responders = T, desc = "") {
@@ -93,11 +93,13 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
   # if no partition, responder partitioning is impossible
   if (is.na(partition)) responder_partition = F
   # transparency only if chosen and responder_partition available and not faceted
-  if (responder_partition && !faceted && partition_method == "transparency") transparency = T
-  else transparency = F
+  if (responder_partition && !faceted && partition_method == "transparency") {
+    transparency = T
+  } else transparency = F
   # aggregate only if chosen and responder_partition available and not faceted
-  if (responder_partition && !faceted && partition_method == "aggregate") aggregate = T
-  else aggregate = F
+  if (responder_partition && !faceted && partition_method == "aggregate") {
+    aggregate = T
+  } else aggregate = F
   # if no responder partitioning or using aggregate, do not label responders
   if (!responder_partition || aggregate) label_responders = F
   
@@ -109,8 +111,9 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
     comb_df <- data.frame()
   
     # setting units
-    if (omit_units) unit <- ""
-    else if (dataset == "clinical") {
+    if (omit_units) {
+      unit <- ""
+    } else if (dataset == "clinical") {
       if (is.na(clin_units[analy])) {
         unit <- ""
       } else {
@@ -146,19 +149,19 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       load(file.path("Data", file_prefix, paste(file_prefix, fiber, dataset, "df.RData", sep = "_")))
       tidy_df <- tidy_df %>% filter(analyte == analy) %>% filter(id %in% only) %>% filter(!(id %in% without))
       
-      # graphing ids together, averaged
+      # choosing norm or not
       if (norm) {
         tidy_df <- na.omit(tidy_df) # for missing baselines creating NAs in normalization
-        tmp_df <- tidy_df %>%
-          group_by(point) %>%
-          summarize(mean_parts = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on norm
-          ungroup()
+        tidy_df <- tidy_df %>% mutate(value = renorm_val)
       } else {
-        tmp_df <- tidy_df %>%
-          group_by(point) %>%
-          summarize(mean_parts = mean(val), std_error = std.error(val)) %>% # std error cannot be based on norm
-          ungroup()
+        tidy_df <- tidy_df %>% mutate(value = val)
       }
+      
+      # graphing ids together, averaged
+      tmp_df <- tidy_df %>%
+        group_by(point) %>%
+        summarize(mean_parts = mean(value), std_error = std.error(value)) %>%
+        ungroup()
 
       # saving dfs
       tmp_df <- cbind(tmp_df, "fiber" = rep(fiber, nrow(tmp_df)))
@@ -169,15 +172,9 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       
       if (dataset == "clinical") {
         # setting up background rects
-        if (norm) {
-          data_min <- min(tidy_df$renorm_val)
-          data_max <- max(tidy_df$renorm_val)
-        } else {
-          data_min <- min(tidy_df$val)
-          data_max <- max(tidy_df$val)
-        }
-        # data_min <- data_mins[[analy]]
-        # data_max <- data_maxs[[analy]]
+        data_min <- min(tidy_df$value)
+        data_max <- max(tidy_df$value)
+        
         if (data_min >= clin_maxs[analy] || data_max <= clin_mins[analy]) { # case of no normal_range
           ranges <- data.frame(ystart = data_min,
                                yend = data_max,
@@ -214,19 +211,22 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       }
       
       # transparency
-      if (transparency) tidy_df$alph <- partition_vec[tidy_df$id] == responder_label
-      else if (aggregate) {
+      if (transparency) {
+        tidy_df$alph <- partition_vec[tidy_df$id] == responder_label
+        # generate random colors for responders
+        # colors_per_id = rainbow(length(ids))[sample(1:length(ids), length(ids))]
+        colors_per_id = seq(15, 375, length = length(ids))
+        colors_per_id = hcl(h = colors_per_id, l = 65, c = 100)[1:length(ids)]
+        names(colors_per_id) <- ids
+        colors_per_id[partition_vec[ids] != responder_label] = "#C2C5CC"
+        
+        responders <- ids[partition_vec[ids] == responder_label]
+      } else if (aggregate) {
         tidy_df$partition <- partition_vec[tidy_df$id]
-        if (norm)
-          tidy_df <- tidy_df %>%
-            group_by(point, partition) %>%
-            summarize(mean_partition = mean(renorm_val), std_error = std.error(renorm_val)) %>% # std error cannot be based on norm
-            ungroup()
-        else
-          tidy_df <- tidy_df %>%
-            group_by(point, partition) %>%
-            summarize(mean_partition = mean(val), std_error = std.error(val)) %>% # std error cannot be based on norm
-            ungroup()
+        tidy_df <- tidy_df %>%
+          group_by(point, partition) %>%
+          summarize(mean_partition = mean(value), std_error = std.error(value)) %>% # std error cannot be based on norm
+          ungroup()
       }
       
       # graphing ids separately
@@ -236,35 +236,19 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       if (dataset == "clinical") plot <- plot +
         geom_rect(data = ranges, aes(ymin = ystart, ymax = yend, xmin = -Inf, xmax = Inf, fill = col), alpha = 0.4) +
         scale_fill_manual(name = "range", values = c(outside_normal = "#ffcccb", normal_range = "#c6ff95"))
-      # manage colors and val vs renorm_val
-      if (norm) {
-        if (faceted && is.na(partition)) plot <- plot +  # faceted and no partition: no colors
-          geom_line(aes(x = point, y = renorm_val, group = id))
-        else { # otherwise, colors
-          if (transparency) plot <- plot +
-            geom_line(aes(x = point, y = renorm_val, group = id, alpha = alph, color = id))
-          else if (aggregate) plot <- plot +
-            geom_line(aes(x = point, y = mean_partition, group = partition, color = partition), position = pd) +
-            geom_errorbar(aes(x = point, ymin = mean_partition - std_error, ymax = mean_partition + std_error,
-                              group = partition, color = partition),
-                          width = .5, position = pd)
-          else plot <- plot +
-            geom_line(aes(x = point, y = renorm_val, group = id, color = id))
-        }
-      } else {
-        if (faceted && is.na(partition)) plot <- plot + # faceted and no partition: include colors
-          geom_line(aes(x = point, y = val, group = id))
-        else { # otherwise, colors
-          if (transparency) plot <- plot +
-            geom_line(aes(x = point, y = val, group = id, alpha = alph, color = id))
-          else if (aggregate) plot <- plot +
-              geom_line(aes(x = point, y = mean_partition, group = partition, color = partition), position = pd) +
-              geom_errorbar(aes(x = point, ymin = mean_partition - std_error, ymax = mean_partition + std_error,
-                                group = partition, color = partition),
-                            width = .5, position = pd)
-          else plot <- plot +
-              geom_line(aes(x = point, y = val, group = id, color = id))
-        }
+      # manage colors
+      if (faceted && is.na(partition)) plot <- plot +  # faceted and no partition: no colors
+        geom_line(aes(x = point, y = value, group = id))
+      else { # otherwise, colors
+        if (transparency) plot <- plot +
+          geom_line(aes(x = point, y = value, group = id, alpha = alph, color = id))
+        else if (aggregate) plot <- plot +
+          geom_line(aes(x = point, y = mean_partition, group = partition, color = partition), position = pd) +
+          geom_errorbar(aes(x = point, ymin = mean_partition - std_error, ymax = mean_partition + std_error,
+                            group = partition, color = partition),
+                        width = .5, position = pd)
+        else plot <- plot +
+          geom_line(aes(x = point, y = value, group = id, color = id))
       }
       # theme management
       if (omit_x_axis) plot <- plot +
@@ -281,8 +265,11 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
       plot <- plot +
         ylab(paste(analy_full, unit, sep = ""))
       # optionals
-      if (transparency) plot <- plot + scale_alpha_manual(values = c(0.4, 1), labels = NULL)
-      if (label_responders) plot <- plot + scale_color_discrete(breaks = responders, name = responder_label)
+      if (transparency) {
+        plot <- plot + scale_alpha_manual(values = c(.3, 1), labels = NULL) +
+          scale_color_manual(values = colors_per_id, labels = responders, breaks = responders, name = responder_label)
+      }
+      # if (label_responders) plot <- plot + scale_color_discrete(breaks = responders, name = responder_label)
       if (faceted) plot <- plot + facet_wrap(~partition)
       
       print(plot)
