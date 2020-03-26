@@ -1,4 +1,4 @@
-# investigate ONE analy as 3 groups on 1 graph, with top, middle, bottom groups of responders
+# investigate ONE analy as with selected partitioning type
 # responder val calculated with mean of 10, 20, 30
 
 # @dataset                e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, metabolomics
@@ -11,6 +11,7 @@
 # @filled                 "fill in" missing baselines with avg of present baselines (precomputed)
 # @responder_label        artificially create binary division, which partition label to be treated as responder
 # @partition_method       partitioning methods, current options: transparency, aggregate
+# @partition_type         how to partition, current options: N_Partition, Top_N_Partition
 # @only                   only include these ids
 # @without                exclude these ids
 # @omit_x_axis            often used for faceted graphs, omit x-axis labels for clean look
@@ -24,9 +25,9 @@
 # @desc                   for documentation, should be used with any specification of partition, only, without, 
 #                           multiple selected
 
-analyte_investigate_N_partition <- function(dataset, selected = all_analytes, norm = T, N = 3, overwrite = F,
-                                            faceted = F, filled = F, responder_label = "top",
-                                            partition_method = "aggregate",
+analyte_investigate_partition <- function(dataset, selected = all_analytes, norm = T, N = 3, overwrite = F,
+                                            faceted = F, filled = F, responder_label = "responder",
+                                            partition_method = "transparency", partition_type = "Top_N_Partition",
                                             only = ids, without = c(), omit_x_axis = F, omit_units = F,
                                             fibers = all_fibers, file_prefix = "Tidy_Full", graph_dir = NA,
                                             responder_partition = T, label_responders = T, desc = "") {
@@ -41,9 +42,13 @@ analyte_investigate_N_partition <- function(dataset, selected = all_analytes, no
   
   for (analy in selected) {
     # get partitions; safer to specify params in case order changes
-    partition_dir <- N_partition(dataset = dataset, analy = analy, norm = norm, N = N, overwrite = overwrite,
+    if (partition_type == "N_Partition") {
+      partition_dir <- N_partition(dataset = dataset, analy = analy, norm = norm, N = N, overwrite = overwrite,
                                             fibers = fibers, file_prefix = file_prefix, filled = filled, only = only, without = without)
-    
+    } else if (partition_type == "Top_N_Partition") {
+      partition_dir <- top_N_partition(dataset = dataset, analy = analy, norm = norm, N = N, overwrite = overwrite,
+                                   fibers = fibers, file_prefix = file_prefix, filled = filled, only = only, without = without)
+    }
     
     # run each fiber with its partition for that analyte; safer to specify params in case order changes
     for (fiber in fibers) {
@@ -52,7 +57,7 @@ analyte_investigate_N_partition <- function(dataset, selected = all_analytes, no
       # consolidate in one dir
       if (is.na(graph_dir)) {
         dir_source <- "Graphs"
-        dir_name <-  paste("Resp", N, "Partition", sep = "_")
+        dir_name <-  paste("Resp", N, partition_type, sep = "_")
         if (norm) dir_name <- paste(dir_name, "Norm", sep = "_")
         if (faceted) dir_name <- paste(dir_name, "Faceted", sep = "_")
         if (filled) dir_name <- paste(dir_name, "Filled", sep = "_")
