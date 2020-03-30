@@ -139,8 +139,10 @@ analyte_investigate <- function(dataset, selected = all_analytes, norm = T,
     if (dataset == "proteomics") {
       analy_full <- proteo[gsub("[.].$", "", analy), "Protein.name"]
     }
+    
+    if (nchar(analy_full) + nchar(unit) >= 40) unit <- paste("\n", unit, sep = "") # smart newline for long analyte/unit names
 
-    print(paste(analy_full, unit, sep = ""))
+    print(paste(analy_full, unit, sep = ""))  
     
     for (fiber in fibers) {
       print(fiber)
