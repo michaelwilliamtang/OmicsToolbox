@@ -3,7 +3,7 @@
 #   all edges between the vertices of cross-omic correlations); up to 30 graphs total
 # non-correlating vertices omitted in all cases
 
-# @dataset                e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, 
+# @dataset1/2             e.g. genef, pcl, metaphlan, cytokine, clinical, lipids, proteomics, 
 #                         metabolomics
 # @fibers                 fibers to include, default = all
 # @source_dir             data location
@@ -11,7 +11,7 @@
 # @file_postfix           postfix of file name, optional
 # @desc                   optional, for documentation, needs to describe clearly
 
-correlation_networks <- function(dataset, fibers = all_fibers, 
+correlation_networks <- function(dataset1, dataset2, fibers = all_fibers, 
                              source_dir = "Data", file_prefix = "Tidy_Full", file_postfix = "", desc = "") {
   
   require(Mfuzz)
@@ -24,9 +24,14 @@ correlation_networks <- function(dataset, fibers = all_fibers,
   # require(impute)
   
   all_fibers <- scan(file.path("Metadata", "Fibers.tsv"), character(), quote = '', sep = "\t", quiet = T)
+  file_prefix1 <- "Tidy_Full" # aux directory to get analyte lists
+  load(file.path("Data", file_prefix1, paste(file_prefix1, fibers[1], dataset1, "df.RData", sep = "_")))
+  all_analytes1 <- tidy_df$analyte %>% unique()
+  load(file.path("Data", file_prefix1, paste(file_prefix1, fibers[1], dataset2, "df.RData", sep = "_")))
+  all_analytes2 <- tidy_df$analyte %>% unique()
   
   # creating dirs
-  fiber_dir <- file.path("Graphs", paste("Correlation_Networks", dataset,
+  fiber_dir <- file.path("Graphs", paste("Correlation_Networks", dataset1, dataset2,
                                         desc, sep = "_")) # quick dir name change
   fiber_dir1 <- file.path(fiber_dir, "Correlations") # quick dir name change
   fiber_dir2 <- file.path(fiber_dir, "Comparisons") # quick dir name change
@@ -62,13 +67,17 @@ correlation_networks <- function(dataset, fibers = all_fibers,
     for (i in 1:nrow(edges)){
       correlation_values[[i]] <- cor.data[edges[i,2],edges[i,1]]
     }
-    E(network)$color <- ifelse(correlation_values < 0, "red","darkgreen")
+    E(network)$color <- ifelse(correlation_values < 0, "red", "blue")
     # E(network)$weight <- correlation_values
     
     # vertex colors
-    # colors <- c(rep("yellow", length = length(clinical_obs)), 
-    #             rep("lightblue", length = (vcount(network) - length(clinical_obs))))
-    colors <- c(rep("lightblue", length = vcount(network))) # only 1 dataset
+    num_dataset1 <- 130 #length(which(rownames(cor.data) %in% all_analytes1))
+    num_dataset2 <- 107 #length(which(rownames(cor.data) %in% all_analytes2))
+    if (num_dataset1 == 0) next # catching no-analy1 situation
+    if (num_dataset2 == 0) next # catching no-analy2 situ
+    colors <- c(rep("#0006f5ff", length = num_dataset1), # "#0006f5ff"
+                rep("yellow", length = num_dataset2))
+    # colors <- c(rep("lightblue", length = vcount(network))) # only 1 dataset
     V(network)$color <- colors
     
     # # removing vertices that are not connected to a clinical
@@ -81,8 +90,6 @@ correlation_networks <- function(dataset, fibers = all_fibers,
     
     network <- igraph::delete.vertices(network, degree(network) == 0)
     # this used to be length(clinical_obs) but we deleted unconnected verts
-    # if (length(which(V(network)$color == "yellow")) == 0) next # catching no-analy1 situation
-    if (length(which(V(network)$color == "lightblue")) == 0) next # catching no-analy2 situ
     # clin_num <- max(which(V(network)$color == "yellow"))
     
     ##################################################################
