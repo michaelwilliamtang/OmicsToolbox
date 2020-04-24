@@ -71,7 +71,7 @@ analyte_investigate_partition <- function(dataset, selected = all_analytes, norm
         dir.create(graph_dir)
       
       # make graphs
-      analyte_investigate(dataset = dataset, selected = analy, norm = norm, 
+      analyte_investigate_overlay(dataset = dataset, selected = analy, norm = norm, 
                           comb_only = comb_only, faceted = faceted, filled = filled, partition = partition_loc,
                           responder_label = responder_label, partition_method = partition_method,
                           only = only, without = without, omit_x_axis = omit_x_axis, omit_units = omit_units,
