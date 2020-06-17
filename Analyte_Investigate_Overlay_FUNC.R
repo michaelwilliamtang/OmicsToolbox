@@ -125,9 +125,9 @@ analyte_investigate_overlay <- function(dataset, selected = all_analytes, norm =
       # }
     } else {
       if (norm) {
-        unit <- " (log2 normalized expression)"
+        unit <- "\n(log2 normalized expression)"
       } else {
-        unit <- " (log2 expression)"
+        unit <- "\n(log2 expression)"
       }
     }
     

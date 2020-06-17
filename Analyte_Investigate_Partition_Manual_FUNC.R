@@ -43,7 +43,9 @@ analyte_investigate_partition_manual <- function(dataset, selected = all_analyte
     
     # run each fiber with its partition for that analyte; safer to specify params in case order changes
     for (fiber in fibers) {
-      partition_loc <- file.path(partition_dir, paste(fiber, "_", analy, "_", dataset, ".csv", sep = ""))
+      # partition_loc <- file.path(partition_dir, paste(fiber, "_", analy, "_", dataset, ".csv", sep = ""))
+      # convenient for reusing manual partitions
+      partition_loc <- file.path(partition_dir, paste(fiber, ".csv", sep = ""))
       
       # consolidate in one dir
       if (is.na(graph_dir)) {
